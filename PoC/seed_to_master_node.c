@@ -3,17 +3,11 @@
 #include <sodium.h>
 #include <secp256k1.h>
 
+void dumpmem(const uint8_t *mem, size_t memlen);
+
 void error_print(const char *msg)
 {
 	fputs(msg, stderr);
-}
-
-void dumpmem(const uint8_t *mem, size_t memlen)
-{
-	for (size_t i = 0; i < memlen; ++i)
-		printf("%02x", mem[i]);
-
-	printf("\n");
 }
 
 struct s_extended_key
