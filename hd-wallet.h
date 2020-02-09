@@ -20,6 +20,8 @@ extern secp256k1_context *ctx;
 
 void error_print(const char *module, const char *msg);
 void dumpmem(const uint8_t *mem, size_t memlen);
+void serialize_be_32(uint32_t i, uint8_t serialized[4]);
+void serialize_be_256(const uint8_t *p, uint8_t serialized[32]);
 
 void node_dump(const struct s_wallet_node *master_node);
 int node_master_generate(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node);
