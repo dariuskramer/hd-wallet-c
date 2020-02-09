@@ -1,0 +1,9 @@
+[submodule "libbase58"]
+	path = libbase58
+	url = https://github.com/luke-jr/libbase58
+[submodule "secp256k1"]
+	path = secp256k1
+	url = https://github.com/bitcoin-core/secp256k1
+[submodule "libsodium"]
+	path = libsodium
+	url = https://github.com/jedisct1/libsodium
