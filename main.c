@@ -6,6 +6,8 @@
 #include <secp256k1.h>
 #include "hd-wallet.h"
 
+secp256k1_context *ctx;
+
 int read_seed_from_stdin(uint8_t *seed, size_t seedlen)
 {
 	ssize_t bytes_read;
@@ -28,9 +30,9 @@ int read_seed_from_stdin(uint8_t *seed, size_t seedlen)
 int main(void)
 {
 	int ret;
-	secp256k1_context *ctx;
-	uint8_t seed[SEED_ENTROPY_SIZE];
+	uint8_t seed[SEED_MIN_ENTROPY_SIZE];
 	size_t seedlen = sizeof(seed);
+	struct s_wallet_node master_node = {0};
 
 	if (sodium_init() < 0)
 	{
@@ -54,9 +56,11 @@ int main(void)
 			goto cleanup;
 	}
 
-	ret = node_master_generate(seed, seedlen, ctx);
+	ret = node_master_generate(seed, seedlen, &master_node);
 	if (ret == -1)
 		goto cleanup;
+
+	node_dump(&master_node);
 
 	return EXIT_SUCCESS;
 
