@@ -6,12 +6,29 @@
 #include <secp256k1.h>
 #include "hd-wallet.h"
 
+int read_seed_from_stdin(uint8_t *seed, size_t seedlen)
+{
+	ssize_t bytes_read;
+
+	bytes_read = read(STDIN_FILENO, seed, seedlen);
+	if (bytes_read < 0)
+	{
+		perror("read");
+		return -1;
+	}
+	else if ((size_t)bytes_read != seedlen)
+	{
+		error_print("read", "insufficient entropy");
+		return -1;
+	}
+
+	return 0;
+}
+
 int main(void)
 {
 	int ret;
-	int fd = STDIN_FILENO;
 	secp256k1_context *ctx;
-	ssize_t bytes_read;
 	uint8_t seed[SEED_ENTROPY_SIZE];
 	size_t seedlen = sizeof(seed);
 
@@ -29,26 +46,12 @@ int main(void)
 	}
 
 	if (isatty(STDIN_FILENO))
+		randombytes_buf(seed, seedlen);
+	else
 	{
-		ret = open("/dev/urandom", O_RDONLY);
+		ret = read_seed_from_stdin(seed, seedlen);
 		if (ret == -1)
-		{
-			perror("open");
 			goto cleanup;
-		}
-		fd = ret;
-	}
-
-	bytes_read = read(fd, seed, seedlen);
-	if (bytes_read < 0)
-	{
-		perror("read");
-		goto cleanup;
-	}
-	else if ((size_t)bytes_read != seedlen)
-	{
-		error_print("read", "insufficient entropy");
-		goto cleanup;
 	}
 
 	ret = node_master_generate(seed, seedlen, ctx);
@@ -59,7 +62,6 @@ int main(void)
 
 cleanup:
 	secp256k1_context_destroy(ctx);
-	close(fd);
 	sodium_memzero(seed, seedlen);
 
 	return EXIT_FAILURE;
