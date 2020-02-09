@@ -43,30 +43,38 @@ void node_dump(const struct s_wallet_node *master_node)
 	printf("uncompressed pubkey: %s\n", uncompressed_pubkey_hex);
 }
 
-int node_master_generate(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node)
+int node_init(struct s_wallet_node *node, const uint8_t hash[crypto_auth_hmacsha512_BYTES], uint32_t index)
 {
-	uint8_t key[] = "Bitcoin seed";
-	uint8_t hash[crypto_auth_hmacsha512_BYTES];
 	int ret;
 
-	node_compute_hmac_sha512(key, sizeof(key), seed, seedlen, hash);
+	memcpy(node->privkey, hash, NODE_PRIVKEY_SIZE);
+	memcpy(node->chaincode, hash + NODE_PRIVKEY_SIZE, NODE_CHAINCODE_SIZE);
 
-	memcpy(master_node->privkey, hash, NODE_PRIVKEY_SIZE);
-	memcpy(master_node->chaincode, hash + NODE_PRIVKEY_SIZE, NODE_CHAINCODE_SIZE);
-
-	ret = secp256k1_ec_seckey_verify(ctx, (const unsigned char*)&master_node->privkey);
+	ret = secp256k1_ec_seckey_verify(ctx, (const unsigned char*)&node->privkey);
 	if (ret == 0)
 	{
 		error_print("secp256k1_ec_seckey_verify", "secret key is invalid");
 		return -1;
 	}
 
-	ret = secp256k1_ec_pubkey_create(ctx, &master_node->pubkey, (const unsigned char*)&master_node->privkey);
+	ret = secp256k1_ec_pubkey_create(ctx, &node->pubkey, (const unsigned char*)&node->privkey);
 	if (ret == 0)
 	{
 		error_print("secp256k1_ec_pubkey_create", "secret was invalid");
 		return -1;
 	}
 
+	node->index = index;
+
 	return 0;
+}
+
+int node_master_generate(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node)
+{
+	uint8_t key[] = "Bitcoin seed";
+	uint8_t hash[crypto_auth_hmacsha512_BYTES];
+
+	node_compute_hmac_sha512(key, sizeof(key), seed, seedlen, hash);
+
+	return node_init(master_node, hash, 0);
 }
