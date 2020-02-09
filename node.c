@@ -5,27 +5,11 @@
 #include <secp256k1.h>
 #include "hd-wallet.h"
 
-static void node_compute_hmac_sha512(const uint8_t *key, size_t keylen,
-		const uint8_t *data, size_t datalen,
-		uint8_t hash[crypto_auth_hmacsha512_BYTES])
-{
-	crypto_auth_hmacsha512_state state;
-
-	crypto_auth_hmacsha512_init(&state, key, keylen);
-	crypto_auth_hmacsha512_update(&state, data, datalen);
-	crypto_auth_hmacsha512_final(&state, hash);
-}
-
 void node_dump(const struct s_wallet_node *master_node)
 {
 	char privkey_hex[NODE_PRIVKEY_SIZE * 2 + 1];
 	char chaincode_hex[NODE_CHAINCODE_SIZE * 2 + 1];
 	char compressed_pubkey_hex[NODE_COMPRESSED_PUBKEY_SIZE * 2 + 1];
-	char uncompressed_pubkey_hex[NODE_UNCOMPRESSED_PUBKEY_SIZE * 2 + 1];
-	unsigned char output[NODE_UNCOMPRESSED_PUBKEY_SIZE];
-	size_t outputlen = sizeof(output);
-
-	puts(">>> Dump wallet node");
 
 	sodium_bin2hex(privkey_hex, sizeof(privkey_hex), master_node->privkey, NODE_PRIVKEY_SIZE);
 	printf("privkey: %s\n", privkey_hex);
@@ -33,36 +17,29 @@ void node_dump(const struct s_wallet_node *master_node)
 	sodium_bin2hex(chaincode_hex, sizeof(chaincode_hex), master_node->chaincode, NODE_CHAINCODE_SIZE);
 	printf("chaincode: %s\n", chaincode_hex);
 
-	secp256k1_ec_pubkey_serialize(ctx, output, &outputlen, &master_node->pubkey, SECP256K1_EC_COMPRESSED);
-	sodium_bin2hex(compressed_pubkey_hex, sizeof(compressed_pubkey_hex), output, outputlen);
+	sodium_bin2hex(compressed_pubkey_hex, sizeof(compressed_pubkey_hex), master_node->pubkey, NODE_COMPRESSED_PUBKEY_SIZE);
 	printf("compressed pubkey: %s\n", compressed_pubkey_hex);
 
-	outputlen = sizeof(output);
-	secp256k1_ec_pubkey_serialize(ctx, output, &outputlen, &master_node->pubkey, SECP256K1_EC_UNCOMPRESSED);
-	sodium_bin2hex(uncompressed_pubkey_hex, sizeof(uncompressed_pubkey_hex), output, outputlen);
-	printf("uncompressed pubkey: %s\n", uncompressed_pubkey_hex);
+	printf("index: %u\n", master_node->index);
 }
 
-int node_init(struct s_wallet_node *node, const uint8_t hash[crypto_auth_hmacsha512_BYTES], uint32_t index)
+static int node_init(struct s_wallet_node *node, const uint8_t *left, const uint8_t *right, uint32_t index)
 {
 	int ret;
 
-	memcpy(node->privkey, hash, NODE_PRIVKEY_SIZE);
-	memcpy(node->chaincode, hash + NODE_PRIVKEY_SIZE, NODE_CHAINCODE_SIZE);
+	memcpy(node->privkey, left, NODE_PRIVKEY_SIZE);
+	memcpy(node->chaincode, right, NODE_CHAINCODE_SIZE);
 
-	ret = secp256k1_ec_seckey_verify(ctx, (const unsigned char*)&node->privkey);
+	ret = secp256k1_ec_seckey_verify(ctx, (const unsigned char*)node->privkey);
 	if (ret == 0)
 	{
-		error_print("secp256k1_ec_seckey_verify", "secret key is invalid");
+		ERROR("secret key is invalid");
 		return -1;
 	}
 
-	ret = secp256k1_ec_pubkey_create(ctx, &node->pubkey, (const unsigned char*)&node->privkey);
-	if (ret == 0)
-	{
-		error_print("secp256k1_ec_pubkey_create", "secret was invalid");
+	ret = serialize_pubkey_from_privkey(node->privkey, node->pubkey);
+	if (ret == -1)
 		return -1;
-	}
 
 	node->index = index;
 
@@ -72,9 +49,10 @@ int node_init(struct s_wallet_node *node, const uint8_t hash[crypto_auth_hmacsha
 int node_master_generate(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node)
 {
 	uint8_t key[] = "Bitcoin seed";
-	uint8_t hash[crypto_auth_hmacsha512_BYTES];
+	uint8_t left[crypto_auth_hmacsha512_BYTES / 2];
+	uint8_t right[crypto_auth_hmacsha512_BYTES / 2];
 
-	node_compute_hmac_sha512(key, sizeof(key), seed, seedlen, hash);
+	hmac_sha512(key, sizeof(key), seed, seedlen, left, right);
 
-	return node_init(master_node, hash, 0);
+	return node_init(master_node, left, right, 0);
 }

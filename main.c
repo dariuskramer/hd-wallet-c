@@ -20,7 +20,7 @@ int read_seed_from_stdin(uint8_t *seed, size_t seedlen)
 	}
 	else if ((size_t)bytes_read != seedlen)
 	{
-		error_print("read", "insufficient entropy");
+		ERROR("insufficient entropy");
 		return -1;
 	}
 
@@ -33,17 +33,18 @@ int main(void)
 	uint8_t seed[SEED_MIN_ENTROPY_SIZE];
 	size_t seedlen = sizeof(seed);
 	struct s_wallet_node master_node = {0};
+	struct s_wallet_node child_node = {0};
 
 	if (sodium_init() < 0)
 	{
-		error_print("sodium_init", "couldn't be initialized");
+		ERROR("libsodium couldn't be initialized");
 		return EXIT_FAILURE;
 	}
 
 	ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
 	if (ctx == NULL)
 	{
-		error_print("secp256k1_context_create", "failed to create context!");
+		ERROR("failed to create secp256k1 context!");
 		return EXIT_FAILURE;
 	}
 
@@ -60,13 +61,41 @@ int main(void)
 	if (ret == -1)
 		goto cleanup;
 
+	puts(">>> Master Node");
 	node_dump(&master_node);
+
+	for (uint32_t i = 0; i < 3; ++i)
+	{
+		ret = ckd_private_parent_to_private_child(&master_node, &child_node, i);
+		if (ret != -1)
+		{
+			printf(">>> Private Parent -> Private Child Node #%u\n", i);
+			node_dump(&child_node);
+		}
+
+		/* ret = ckd_public_parent_to_public_child(&master_node, &child_node, i); */
+		/* if (ret != -1) */
+		/* { */
+		/* 	printf(">>> Public Parent -> Public Child Node #%u\n", i); */
+		/* 	node_dump(&child_node); */
+		/* } */
+
+		ret = ckd_private_parent_to_public_child(&master_node, &child_node, i);
+		if (ret != -1)
+		{
+			printf(">>> Private Parent -> Public Child Node #%u\n", i);
+			node_dump(&child_node);
+		}
+
+		sodium_memzero(&child_node, sizeof(child_node));
+	}
 
 	return EXIT_SUCCESS;
 
 cleanup:
 	secp256k1_context_destroy(ctx);
 	sodium_memzero(seed, seedlen);
+	sodium_memzero(&master_node, sizeof(master_node));
 
 	return EXIT_FAILURE;
 }
