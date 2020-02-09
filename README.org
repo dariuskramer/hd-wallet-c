@@ -7,6 +7,9 @@
   
 ** Build
 #+BEGIN_SRC shell
+git submodule init
+git submodule update
+
 cd libbase58
 ./autogen.sh
 ./configure
