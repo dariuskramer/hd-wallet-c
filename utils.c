@@ -4,6 +4,9 @@
 #include <string.h>
 #include <sodium.h>
 #include <secp256k1.h>
+#include <scalar_impl.h>
+#include <num_impl.h>
+#include "hd-wallet.h"
 
 void error_print(const char *module, const char *msg)
 {

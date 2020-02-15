@@ -1,5 +1,5 @@
 NAME   = hd-wallet
-CC     ?= clang
+CC     ?= gcc
 
 CFLAGS = -Wall -Werror -Wextra
 CFLAGS += -std=c11 -pedantic
@@ -30,7 +30,7 @@ CFLAGS     += -Ilibsodium/src/libsodium/include/
 LDFLAGS    += -Llibsodium/src/libsodium/.libs -Wl,-rpath,libsodium/src/libsodium/.libs -lsodium
 
 # secp256k1
-CFLAGS     += -Isecp256k1/include
+CFLAGS     += -Isecp256k1/include -Isecp256k1/src -DHAVE___INT128 -DUSE_SCALAR_4X64 -DUSE_NUM_GMP -DUSE_SCALAR_INV_BUILTIN -g -O2 -W -Wcast-align -Wnested-externs -Wshadow -Wstrict-prototypes -Wno-unused-function -Wno-long-long -Wno-overlength-strings -fvisibility=hidden -O3
 LDFLAGS    += -Lsecp256k1/.libs -Wl,-rpath,secp256k1/.libs -lsecp256k1
 
 
