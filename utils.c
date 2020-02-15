@@ -127,7 +127,7 @@ int serialize_point(const secp256k1_pubkey *point, uint8_t serialized_point[NODE
 {
 	size_t	serialized_point_len = NODE_COMPRESSED_PUBKEY_SIZE;
 
-	secp256k1_ec_pubkey_serialize(ctx, serialized_point, &serialized_point_len, &point, SECP256K1_EC_COMPRESSED);
+	secp256k1_ec_pubkey_serialize(ctx, serialized_point, &serialized_point_len, point, SECP256K1_EC_COMPRESSED);
 
 	if (serialized_point_len != NODE_COMPRESSED_PUBKEY_SIZE)
 	{
