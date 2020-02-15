@@ -17,6 +17,7 @@ SOURCES    += main.c
 SOURCES    += utils.c
 SOURCES    += node.c
 SOURCES    += ckd.c
+SOURCES    += wrappers.c
 
 OBJ_PATH   = .obj
 OBJECTS    = $(SOURCES:%.c=$(OBJ_PATH)/%.o)
