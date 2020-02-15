@@ -8,6 +8,8 @@
 # define NODE_CHAINCODE_SIZE 32
 # define NODE_COMPRESSED_PUBKEY_SIZE 33
 # define NODE_UNCOMPRESSED_PUBKEY_SIZE 65
+# define KEY_HARDENED_MARKER	'\''
+# define KEY_HARDENED_OFFSET	(1U << 31)
 
 # define ERROR(msg) error_print(__func__, (msg))
 
