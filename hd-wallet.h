@@ -23,8 +23,12 @@ extern secp256k1_context *ctx;
 
 void error_print(const char *module, const char *msg);
 void dumpmem(const uint8_t *mem, size_t memlen);
+int byte_array_add(uint8_t result[32], const uint8_t a[32], const uint8_t b[32]);
+int point(const uint8_t *p, secp256k1_pubkey *pubkey);
 void serialize32(uint32_t i, uint8_t serialized[4]);
 void serialize256(const uint8_t *src, uint8_t serialized[32]);
+int serialize_point(const secp256k1_pubkey *point, uint8_t serialized_point[NODE_COMPRESSED_PUBKEY_SIZE]);
+void parse256(const uint8_t serialized[32], uint8_t parsed[32]);
 void hmac_sha512(const uint8_t *key, size_t keylen, const uint8_t *data, size_t datalen, uint8_t *left, uint8_t *right);
 
 void node_dump(const struct s_wallet_node *master_node);

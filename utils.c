@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <sodium.h>
+#include <secp256k1.h>
 
 void error_print(const char *module, const char *msg)
 {
@@ -15,6 +16,67 @@ void dumpmem(const uint8_t *mem, size_t memlen)
 		printf("%02x", mem[i]);
 
 	printf("\n");
+}
+
+int byte_array_add(uint8_t result[32], const uint8_t a[32], const uint8_t b[32])
+{
+	secp256k1_scalar	sa;
+	secp256k1_scalar	sb;
+	secp256k1_scalar	sr;
+	int					overflow = 0;
+	int					ret = 0;
+
+	secp256k1_scalar_set_b32(&sa, a, &overflow);
+	if (overflow)
+	{
+		ERROR("scalar 1 overflow");
+		ret = -1;
+		goto cleanup;
+	}
+
+	secp256k1_scalar_set_b32(&sb, b, &ret);
+	if (overflow)
+	{
+		ERROR("scalar 2 overflow");
+		ret = -1;
+		goto cleanup;
+	}
+
+	ret = secp256k1_scalar_add(&sr, &sa, &sb);
+	if (ret)
+	{
+		ERROR("scalar add overflow");
+		ret = -1;
+		goto cleanup;
+	}
+
+	ret = secp256k1_scalar_is_zero(&sr);
+	if (ret)
+	{
+		ERROR("scalar is zero");
+		ret = -1;
+		goto cleanup;
+	}
+
+	secp256k1_scalar_get_b32(result, &sr);
+
+cleanup:
+	secp256k1_scalar_clear(&sa);
+	secp256k1_scalar_clear(&sb);
+	secp256k1_scalar_clear(&sr);
+
+	return ret;
+}
+
+int point(const uint8_t *p, secp256k1_pubkey *pubkey)
+{
+	if (secp256k1_ec_pubkey_create(ctx, pubkey, (const unsigned char*)p) == 0)
+	{
+		ERROR("secret was invalid");
+		return -1;
+	}
+
+	return 0;
 }
 
 void serialize32(uint32_t i, uint8_t serialized[4])
@@ -59,6 +121,57 @@ void serialize256(const uint8_t *src, uint8_t serialized[32])
 	serialized[29] = src[2];
 	serialized[30] = src[1];
 	serialized[31] = src[0];
+}
+
+int serialize_point(const secp256k1_pubkey *point, uint8_t serialized_point[NODE_COMPRESSED_PUBKEY_SIZE])
+{
+	size_t	serialized_point_len = NODE_COMPRESSED_PUBKEY_SIZE;
+
+	secp256k1_ec_pubkey_serialize(ctx, serialized_point, &serialized_point_len, &point, SECP256K1_EC_COMPRESSED);
+
+	if (serialized_point_len != NODE_COMPRESSED_PUBKEY_SIZE)
+	{
+		ERROR("serialized point length invalid");
+		return -1;
+	}
+
+	return 0;
+}
+
+void parse256(const uint8_t serialized[32], uint8_t parsed[32])
+{
+	parsed[0]  = serialized[31];
+	parsed[1]  = serialized[30];
+	parsed[2]  = serialized[29];
+	parsed[3]  = serialized[28];
+	parsed[4]  = serialized[27];
+	parsed[5]  = serialized[26];
+	parsed[6]  = serialized[25];
+	parsed[7]  = serialized[24];
+	parsed[8]  = serialized[23];
+	parsed[9]  = serialized[22];
+	parsed[10] = serialized[21];
+	parsed[11] = serialized[20];
+	parsed[12] = serialized[19];
+	parsed[13] = serialized[18];
+	parsed[14] = serialized[17];
+	parsed[15] = serialized[16];
+	parsed[16] = serialized[15];
+	parsed[17] = serialized[14];
+	parsed[18] = serialized[13];
+	parsed[19] = serialized[12];
+	parsed[20] = serialized[11];
+	parsed[21] = serialized[10];
+	parsed[22] = serialized[9];
+	parsed[23] = serialized[8];
+	parsed[24] = serialized[7];
+	parsed[25] = serialized[6];
+	parsed[26] = serialized[5];
+	parsed[27] = serialized[4];
+	parsed[28] = serialized[3];
+	parsed[29] = serialized[2];
+	parsed[30] = serialized[1];
+	parsed[31] = serialized[0];
 }
 
 void hmac_sha512(const uint8_t *key, size_t keylen,
