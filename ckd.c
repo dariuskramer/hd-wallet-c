@@ -58,6 +58,7 @@ cleanup:
 int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, struct s_wallet_node *child, uint32_t index)
 {
 	uint8_t	left[crypto_auth_hmacsha512_BYTES / 2];
+	uint8_t	parsed_left[crypto_auth_hmacsha512_BYTES / 2];
 	uint8_t	right[crypto_auth_hmacsha512_BYTES / 2];
 	uint8_t	data[128];
 	size_t	datalen;
@@ -85,42 +86,66 @@ int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, stru
 	}
 	else /* Normal child */
 	{
-		assert(sizeof(data) >= (NODE_COMPRESSED_PUBKEY_SIZE + sizeof(index)));
+		secp256k1_pubkey	pubkey;
+		uint8_t				serialized_pubkey[NODE_COMPRESSED_PUBKEY_SIZE];
+		uint8_t				serialized_index[sizeof(index)];
+
+		assert(sizeof(data) >= (sizeof(serialized_pubkey) + sizeof(serialized_index)));
+
+		/* point(kpar)
+		 */
+		ret = point(parent->privkey, &pubkey);
+		if (ret == -1)
+			goto cleanup;
+
+		/* serP(point(kpar))
+		 */
+		ret = serialize_point(&pubkey, serialized_pubkey);
+		if (ret == -1)
+			goto cleanup;
+
+		serialize32(index, serialized_index);
 
 		/* Data = serP(point(kpar)) || ser32(i))
 		*/
-		serialize_pubkey_with_index_from_privkey(parent->privkey, data, index);
-		datalen = NODE_COMPRESSED_PUBKEY_SIZE + sizeof(index);
+		memcpy(data,                             serialized_pubkey,  sizeof(serialized_pubkey));
+		memcpy(data + sizeof(serialized_pubkey), serialized_index,   sizeof(serialized_index));
+		datalen = sizeof(serialized_pubkey) + sizeof(serialized_index);
+
+		sodium_memzero(&pubkey,           sizeof(pubkey));
+		sodium_memzero(serialized_pubkey, sizeof(serialized_pubkey));
 	}
 
 	/* (IL, IR) = HMAC-SHA512(Key = cpar, Data = serP(point(kpar)) || ser32(i))
 	*/
 	hmac_sha512(parent->chaincode, NODE_CHAINCODE_SIZE, data, datalen, left, right);
 
-	/* parse256(IL) + kpar (mod n)
-	*/
-	if (secp256k1_ec_privkey_tweak_add(ctx, left, (const unsigned char*)parent->privkey) == 0)
+	/* parse256(IL) ≥ n
+	 */
+	parse256(left, parsed_left);
+	if (secp256k1_ec_seckey_verify(ctx, parsed_left) == 0)
 	{
-		ERROR("tweak out of range or resulting private key invalid");
-		ret = -1;
-		goto cleanup;
-	}
-
-	memcpy(child->privkey,   left,  NODE_PRIVKEY_SIZE);
-	memcpy(child->chaincode, right, NODE_CHAINCODE_SIZE);
-	child->index = index;
-
-	if (secp256k1_ec_seckey_verify(ctx, child->privkey) == 0)
-	{
-		sodium_memzero(child, sizeof(struct s_wallet_node));
 		ERROR("secret key is invalid");
 		ret = -1;
 		goto cleanup;
 	}
 
+	/* ki = parse256(IL) + kpar (mod n)
+	*/
+	ret = byte_array_add(child->privkey, parsed_left, parent->privkey);
+	if (ret == -1)
+		goto cleanup;
+
+	/* ci = IR
+	 */
+	memcpy(child->chaincode, right, NODE_CHAINCODE_SIZE);
+
+	child->index = index;
+
 cleanup:
 	sodium_memzero(data, sizeof(data));
 	sodium_memzero(left, sizeof(left));
+	sodium_memzero(parsed_left, sizeof(parsed_left));
 	sodium_memzero(right, sizeof(right));
 
 	return ret;
