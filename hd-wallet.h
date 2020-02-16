@@ -50,7 +50,7 @@ int byte_array_add(uint8_t result[32], const uint8_t a[32], const uint8_t b[32])
 int byte_array_to_scalar(const uint8_t bytearray[32], secp256k1_scalar *s);
 int point_from_byte_array(const uint8_t *p, secp256k1_pubkey *pubkey);
 int point_from_scalar(const secp256k1_scalar *s, secp256k1_pubkey *pubkey);
-int point_add(const secp256k1_pubkey *a, const secp256k1_pubkey *b, secp256k1_pubkey *result);
+int point_add(secp256k1_pubkey *result, const secp256k1_pubkey *a, const secp256k1_pubkey *b);
 void serialize32(uint32_t i, uint8_t serialized[4]);
 void serialize256(const uint8_t *src, uint8_t serialized[32]);
 int serialize_point(const secp256k1_pubkey *point, uint8_t serialized_point[NODE_COMPRESSED_PUBKEY_SIZE]);
@@ -65,23 +65,23 @@ int node_master_generate(const uint8_t *seed, size_t seedlen, struct s_wallet_no
 
 /* CKD
  */
-/* int ckd_private_parent_to_private_child( */
-/* 		const struct s_extended_private_key *parent, */
-/* 		struct s_extended_private_key *child, */
-/* 		uint32_t index); */
+int ckd_private_parent_to_private_child(
+		const struct s_extended_private_key *parent,
+		struct s_extended_private_key *child,
+		uint32_t index);
 
-/* int ckd_public_parent_to_public_child( */
-/* 		const struct s_extended_public_key *parent, */
-/* 		struct s_extended_public_key *child, */
-/* 		uint32_t index); */
+int ckd_public_parent_to_public_child(
+		const struct s_extended_public_key *parent,
+		struct s_extended_public_key *child,
+		uint32_t index);
 
-/* int ckd_private_parent_to_public_child( */
-/* 		const struct s_extended_private_key *parent, */
-/* 		struct s_extended_public_key *child, */
-/* 		uint32_t index); */
+int ckd_private_parent_to_public_child(
+		const struct s_extended_private_key *parent,
+		struct s_extended_public_key *child,
+		uint32_t index);
 
-int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, struct s_wallet_node *child, uint32_t index);
-int ckd_public_parent_to_public_child(const struct s_wallet_node *parent, struct s_wallet_node *child, uint32_t index);
-int ckd_private_parent_to_public_child(const struct s_wallet_node *parent, struct s_wallet_node *public_child, uint32_t index);
+/* int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, struct s_wallet_node *child, uint32_t index); */
+/* int ckd_public_parent_to_public_child(const struct s_wallet_node *parent, struct s_wallet_node *child, uint32_t index); */
+/* int ckd_private_parent_to_public_child(const struct s_wallet_node *parent, struct s_wallet_node *public_child, uint32_t index); */
 
 #endif

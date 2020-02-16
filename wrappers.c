@@ -61,19 +61,19 @@ int byte_array_to_scalar(const uint8_t bytearray[32], secp256k1_scalar *s)
 	int	overflow = 0;
 	int	ret = 0;
 
-	secp256k1_scalar_set_b32(&s, bytearray, &overflow);
+	secp256k1_scalar_set_b32(s, bytearray, &overflow);
 	if (overflow)
 	{
 		ERROR("scalar overflow");
 		ret = -1;
 	}
 
-	ret = secp256k1_scalar_is_zero(&s);
+	ret = secp256k1_scalar_is_zero(s);
 	if (ret)
 	{
 		ERROR("scalar is zero");
 		ret = -1;
-		secp256k1_scalar_clear(&s);
+		secp256k1_scalar_clear(s);
 	}
 
 	return ret;
@@ -102,9 +102,10 @@ int point_from_scalar(const secp256k1_scalar *s, secp256k1_pubkey *pubkey)
 	return ret;
 }
 
-int point_add(const secp256k1_pubkey *a, const secp256k1_pubkey *b, secp256k1_pubkey *result)
+int point_add(secp256k1_pubkey *result, const secp256k1_pubkey *a, const secp256k1_pubkey *b)
 {
-	secp256k1_pubkey	pubkey_array[2] = {a, b};
+	const secp256k1_pubkey	*pubkey_array[2] = {a, b};
+	int						ret = 0;
 
 	// convertir une pubkey en GE
 	// secp256k1_pubkey_load

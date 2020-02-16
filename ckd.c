@@ -5,7 +5,10 @@
 #include <sodium.h>
 #include "hd-wallet.h"
 
-int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, struct s_wallet_node *child, uint32_t index)
+int ckd_private_parent_to_private_child(
+		const struct s_extended_private_key *parent,
+		struct s_extended_private_key *child,
+		uint32_t index)
 {
 	uint8_t	left[crypto_auth_hmacsha512_BYTES / 2];
 	uint8_t	parsed_left[crypto_auth_hmacsha512_BYTES / 2];
@@ -36,24 +39,24 @@ int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, stru
 	}
 	else /* Normal child */
 	{
-		secp256k1_pubkey	pubkey;
-		uint8_t				serialized_pubkey[NODE_COMPRESSED_PUBKEY_SIZE];
+		secp256k1_pubkey	parent_pubkey;
+		uint8_t				serialized_parent_pubkey[NODE_COMPRESSED_PUBKEY_SIZE];
 		uint8_t				serialized_index[sizeof(index)];
 
-		assert(sizeof(data) >= (sizeof(serialized_pubkey) + sizeof(serialized_index)));
+		assert(sizeof(data) >= (sizeof(serialized_parent_pubkey) + sizeof(serialized_index)));
 
 		/* point(kpar)
 		 */
-		ret = point_from_byte_array(parent->privkey, &pubkey);
+		ret = point_from_byte_array(parent->privkey, &parent_pubkey);
 		if (ret == -1)
 			goto cleanup;
 
 		/* serP(point(kpar))
 		 */
-		ret = serialize_point(&pubkey, serialized_pubkey);
+		ret = serialize_point(&parent_pubkey, serialized_parent_pubkey);
 		if (ret == -1)
 		{
-			sodium_memzero(&pubkey, sizeof(pubkey));
+			sodium_memzero(&parent_pubkey, sizeof(parent_pubkey));
 			goto cleanup;
 		}
 
@@ -61,12 +64,12 @@ int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, stru
 
 		/* Data = serP(point(kpar)) || ser32(i))
 		*/
-		memcpy(data,                             serialized_pubkey,  sizeof(serialized_pubkey));
-		memcpy(data + sizeof(serialized_pubkey), serialized_index,   sizeof(serialized_index));
-		datalen = sizeof(serialized_pubkey) + sizeof(serialized_index);
+		memcpy(data,                                    serialized_parent_pubkey,  sizeof(serialized_parent_pubkey));
+		memcpy(data + sizeof(serialized_parent_pubkey), serialized_index,          sizeof(serialized_index));
+		datalen = sizeof(serialized_parent_pubkey) + sizeof(serialized_index);
 
-		sodium_memzero(&pubkey,           sizeof(pubkey));
-		sodium_memzero(serialized_pubkey, sizeof(serialized_pubkey));
+		sodium_memzero(&parent_pubkey,           sizeof(parent_pubkey));
+		sodium_memzero(serialized_parent_pubkey, sizeof(serialized_parent_pubkey));
 	}
 
 	/* (IL, IR) = HMAC-SHA512(Key = cpar, Data = serP(point(kpar)) || ser32(i))
@@ -93,8 +96,6 @@ int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, stru
 	 */
 	memcpy(child->chaincode, right, NODE_CHAINCODE_SIZE);
 
-	child->index = index;
-
 cleanup:
 	sodium_memzero(data, sizeof(data));
 	sodium_memzero(left, sizeof(left));
@@ -104,11 +105,15 @@ cleanup:
 	return ret;
 }
 
-int ckd_public_parent_to_public_child(const struct s_wallet_node *parent, struct s_wallet_node *child, uint32_t index)
+int ckd_public_parent_to_public_child(
+		const struct s_extended_public_key *parent,
+		struct s_extended_public_key *child,
+		uint32_t index)
 {
-	secp256k1_pubkey	pubkey_left;
-	secp256k1_scalar	scalar_left;
 	uint8_t				left[crypto_auth_hmacsha512_BYTES / 2];
+	uint8_t				parsed_left[crypto_auth_hmacsha512_BYTES / 2];
+	secp256k1_scalar	scalar_left;
+	secp256k1_pubkey	pubkey_left;
 	uint8_t				right[crypto_auth_hmacsha512_BYTES / 2];
 	uint8_t				serialized_parent_pubkey[NODE_COMPRESSED_PUBKEY_SIZE];
 	uint8_t				serialized_index[sizeof(index)];
@@ -126,12 +131,9 @@ int ckd_public_parent_to_public_child(const struct s_wallet_node *parent, struct
 
 	/* serP(Kpar)
 	 */
-	ret = serialize_point(&parent->pubkey, serialized_parent_pubkey);
+	ret = serialize_point(parent->pubkey, serialized_parent_pubkey);
 	if (ret == -1)
-	{
-		sodium_memzero(&pubkey_left, sizeof(pubkey_left));
 		goto cleanup;
-	}
 
 	serialize32(index, serialized_index);
 
@@ -147,54 +149,71 @@ int ckd_public_parent_to_public_child(const struct s_wallet_node *parent, struct
 
 	/* parse256(IL)
 	 */
-	ret = byte_array_to_scalar(left, &scalar_left);
-	if (ret == -1)
+	parse256(left, parsed_left);
+	if (secp256k1_ec_seckey_verify(ctx, parsed_left) == 0)
+	{
+		ERROR("left hmac_sha512 is invalid");
+		ret = -1;
 		goto cleanup;
+	}
 
 	/* point(parse256(IL))
 	 */
+	ret = byte_array_to_scalar(parsed_left, &scalar_left);
+	if (ret == -1)
+		goto cleanup;
 	ret = point_from_scalar(&scalar_left, &pubkey_left);
 	if (ret == -1)
 		goto cleanup;
 
 	/* point(parse256(IL)) + Kpar
 	*/
-	ret = point_add(&pubkey_left, parent->pubkey, child->pubkey);
+	ret = point_add(child->pubkey, &pubkey_left, parent->pubkey);
 	if (ret == -1)
 		goto cleanup;
 
 	/* chain code ci is IR
 	 */
 	memcpy(child->chaincode, right, NODE_CHAINCODE_SIZE);
-	child->index = index;
 
 cleanup:
-	sodium_memzero(&pubkey_left, sizeof(pubkey_left));
-	secp256k1_scalar_clear(&scalar_left);
-	sodium_memzero(data, sizeof(data));
 	sodium_memzero(left, sizeof(left));
+	sodium_memzero(parsed_left, sizeof(parsed_left));
+	secp256k1_scalar_clear(&scalar_left);
+	sodium_memzero(&pubkey_left, sizeof(pubkey_left));
 	sodium_memzero(right, sizeof(right));
+	sodium_memzero(serialized_parent_pubkey, sizeof(serialized_parent_pubkey));
+	sodium_memzero(data, sizeof(data));
 
 	return ret;
 }
 
-int ckd_private_parent_to_public_child(const struct s_wallet_node *parent, struct s_wallet_node *public_child, uint32_t index)
+int ckd_private_parent_to_public_child(
+		const struct s_extended_private_key *parent,
+		struct s_extended_public_key *child,
+		uint32_t index)
 {
-	struct s_wallet_node	private_child;
-	int						ret = 0;
+	uint8_t							private_child_privkey[NODE_PRIVKEY_SIZE];
+	uint8_t							private_child_chaincode[NODE_CHAINCODE_SIZE];
+	struct s_extended_private_key	private_child = {
+		.privkey = private_child_privkey,
+		.chaincode = private_child_chaincode,
+	};
+	int								ret = 0;
 
 	ret = ckd_private_parent_to_private_child(parent, &private_child, index);
 	if (ret == -1)
 		goto cleanup;
 
-	serialize_pubkey_from_privkey(private_child.privkey, public_child->pubkey);
+	ret = point_from_byte_array(private_child.privkey, child->pubkey);
+	if (ret == -1)
+		goto cleanup;
 
-	/* memcpy(public_child->pubkey, &pubkey, NODE_COMPRESSED_PUBKEY_SIZE); */
-	memcpy(public_child->chaincode, private_child.chaincode, NODE_CHAINCODE_SIZE);
-	public_child->index = index;
+	memcpy(child->chaincode, private_child.chaincode, NODE_CHAINCODE_SIZE);
 
 cleanup:
-	sodium_memzero(&private_child, sizeof(private_child));
+	sodium_memzero(private_child_privkey, sizeof(private_child_privkey));
+	sodium_memzero(private_child_chaincode, sizeof(private_child_chaincode));
 
 	return ret;
 }
