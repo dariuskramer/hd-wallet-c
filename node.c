@@ -29,46 +29,36 @@ void node_dump(const struct s_wallet_node *master_node)
 	printf("index: %u\n", master_node->index);
 }
 
-static int node_init(struct s_wallet_node *node, const uint8_t *left, const uint8_t *right, uint32_t index)
-{
-	int ret;
-
-	memcpy(node->privkey, left, NODE_PRIVKEY_SIZE);
-	memcpy(node->chaincode, right, NODE_CHAINCODE_SIZE);
-
-	ret = secp256k1_ec_seckey_verify(ctx, (const unsigned char*)node->privkey);
-	if (ret == 0)
-	{
-		ERROR("secret key is invalid");
-		return -1;
-	}
-
-	/* Compute pubkey
-	 */
-	ret = point_from_byte_array(node->privkey, &node->pubkey);
-	if (ret == -1)
-		return -1;
-
-	/* Serialize pubkey
-	 */
-	ret = serialize_point(&node->pubkey, node->serialized_pubkey);
-	if (ret == -1)
-		return -1;
-
-	node->index = index;
-
-	return 0;
-}
-
 int node_generate_master(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node)
 {
 	uint8_t key[] = "Bitcoin seed";
 	uint8_t left[crypto_auth_hmacsha512_BYTES / 2];
+	uint8_t parsed_left[sizeof(left)];
 	uint8_t right[crypto_auth_hmacsha512_BYTES / 2];
+	int		ret = 0;
 
 	hmac_sha512(key, sizeof(key), seed, seedlen, left, right);
+	parse256(left, parsed_left);
 
-	return node_init(master_node, left, right, 0);
+	memcpy(master_node->privkey, parsed_left, NODE_PRIVKEY_SIZE);
+	memcpy(master_node->chaincode, right, NODE_CHAINCODE_SIZE);
+
+	if (secp256k1_ec_seckey_verify(ctx, (const unsigned char*)master_node->privkey) == 0)
+	{
+		ERROR("secret key is invalid");
+		ret = -1;
+		goto cleanup;
+	}
+
+	master_node->index = 0;
+	master_node->depth = 0;
+
+cleanup:
+	sodium_memzero(left, sizeof(left));
+	sodium_memzero(parsed_left, sizeof(parsed_left));
+	sodium_memzero(right, sizeof(right));
+
+	return ret;
 }
 
 int node_compute_key_path(const char *key_path, const struct s_wallet_node *master_node, struct s_wallet_node *target_node)

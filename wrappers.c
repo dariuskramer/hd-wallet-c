@@ -27,7 +27,7 @@ int byte_array_add(uint8_t result[32], const uint8_t a[32], const uint8_t b[32])
 		goto cleanup;
 	}
 
-	secp256k1_scalar_set_b32(&sb, b, &ret);
+	secp256k1_scalar_set_b32(&sb, b, &overflow);
 	if (overflow)
 	{
 		ERROR("scalar 2 overflow");
@@ -35,16 +35,14 @@ int byte_array_add(uint8_t result[32], const uint8_t a[32], const uint8_t b[32])
 		goto cleanup;
 	}
 
-	ret = secp256k1_scalar_add(&sr, &sa, &sb);
-	if (ret)
+	if (secp256k1_scalar_add(&sr, &sa, &sb))
 	{
-		ERROR("scalar add overflow");
-		ret = -1;
-		goto cleanup;
+		/* ERROR("scalar add overflow"); */
+		/* ret = -1; */
+		/* goto cleanup; */
 	}
 
-	ret = secp256k1_scalar_is_zero(&sr);
-	if (ret)
+	if (secp256k1_scalar_is_zero(&sr))
 	{
 		ERROR("scalar is zero");
 		ret = -1;
