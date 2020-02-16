@@ -64,7 +64,7 @@ int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, stru
 	size_t	datalen;
 	int		ret = 0;
 
-	if (index > (1U << 31)) /* Hardened child */
+	if (KEY_INDEX_IS_HARDEDNED(index)) /* Hardened child */
 	{
 		uint8_t serialized_privkey[NODE_PRIVKEY_SIZE];
 		uint8_t serialized_index[sizeof(index)];
@@ -161,7 +161,7 @@ int ckd_public_parent_to_public_child(const struct s_wallet_node *parent, struct
 	size_t				datalen;
 	int					ret = 0;
 
-	if (index > (1U << 31)) /* Hardened child */
+	if (KEY_INDEX_IS_HARDEDNED(index)) /* Hardened child */
 	{
 		ERROR("(public parent key -> public child key) is only defined for non-hardened child keys");
 		return -1;

@@ -10,6 +10,7 @@
 # define NODE_UNCOMPRESSED_PUBKEY_SIZE 65
 # define KEY_HARDENED_MARKER	'\''
 # define KEY_HARDENED_OFFSET	(1U << 31)
+# define KEY_INDEX_IS_HARDEDNED(i)	((i) >= KEY_HARDENED_OFFSET)
 
 # define ERROR(msg) error_print(__func__, (msg))
 
