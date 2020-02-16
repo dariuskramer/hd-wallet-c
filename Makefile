@@ -1,5 +1,5 @@
 NAME   = hd-wallet
-CC     ?= gcc
+CC     ?= clang
 
 CFLAGS = -Wall -Werror -Wextra
 CFLAGS += -std=c11 -pedantic
