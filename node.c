@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 #include <sodium.h>
 #include <secp256k1.h>
 #include "hd-wallet.h"
@@ -54,7 +55,7 @@ static int node_init(struct s_wallet_node *node, const uint8_t *left, const uint
 	return 0;
 }
 
-int node_master_generate(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node)
+int node_generate_master(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node)
 {
 	uint8_t key[] = "Bitcoin seed";
 	uint8_t left[crypto_auth_hmacsha512_BYTES / 2];
@@ -63,4 +64,56 @@ int node_master_generate(const uint8_t *seed, size_t seedlen, struct s_wallet_no
 	hmac_sha512(key, sizeof(key), seed, seedlen, left, right);
 
 	return node_init(master_node, left, right, 0);
+}
+
+int node_compute_key_path(const char *key_path, const struct s_wallet_node *master_node, struct s_wallet_node *target_node)
+{
+	struct s_wallet_node			temp_parent;
+	struct s_extended_private_key	parent;
+	struct s_extended_private_key	child;
+	uint32_t						target_index;
+	uint8_t							depth = 0;
+	int								ret = 0;
+	bool							hardened;
+	bool							is_target_public = false;
+
+	if (key_path[0] == 'M')
+		is_target_public = true;
+
+	key_path += 2; // m/ TODO
+
+	/* Bootstrap
+	 */
+	memcpy(temp_parent.privkey,   master_node->privkey,   sizeof(temp_parent.privkey));
+	memcpy(temp_parent.chaincode, master_node->chaincode, sizeof(temp_parent.chaincode));
+	parent.privkey   = temp_parent.privkey;
+	parent.chaincode = temp_parent.chaincode;
+	child.privkey    = target_node->privkey;
+	child.chaincode  = target_node->chaincode;
+
+	while ((ret = get_next_index(&key_path, &target_index, &hardened)) == 1)
+	{
+		ret = ckd_private_parent_to_private_child(&parent, &child, target_index);
+		if (ret == -1)
+			goto cleanup;
+
+		memcpy(temp_parent.privkey,   child.privkey,   sizeof(temp_parent.privkey));
+		memcpy(temp_parent.chaincode, child.chaincode, sizeof(temp_parent.chaincode));
+
+		depth += 1;
+	}
+
+	if (ret == -1)
+		goto cleanup;
+
+	if (is_target_public)
+		sodium_memzero(target_node->privkey, sizeof(target_node->privkey));
+
+	target_node->index = target_index;
+	target_node->depth = depth;
+
+cleanup:
+	sodium_memzero(&temp_parent, sizeof(temp_parent));
+
+	return ret;
 }

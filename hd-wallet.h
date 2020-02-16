@@ -1,6 +1,7 @@
 #ifndef HD_WALLET_H
 # define HD_WALLET_H
 
+# include <stdbool.h>
 # include <secp256k1.h>
 # include <scalar_impl.h>
 # include <num_impl.h>
@@ -22,6 +23,7 @@ struct s_wallet_node
 	uint8_t 			chaincode[NODE_CHAINCODE_SIZE];
 	secp256k1_pubkey	pubkey;
 	uint32_t			index;
+	uint8_t				depth;
 	uint8_t 			serialized_pubkey[NODE_COMPRESSED_PUBKEY_SIZE];
 };
 
@@ -43,6 +45,13 @@ extern secp256k1_context *ctx;
  */
 void error_print(const char *module, const char *msg);
 void dumpmem(const uint8_t *mem, size_t memlen);
+/*
+ * Returns:
+ * -1 on error
+ *  0 if no digit left to parse
+ *  1 digit parsed
+ */
+int get_next_index(const char **key_path, uint32_t *next_index, bool *hardened);
 
 /* Wrappers
  */
@@ -61,7 +70,8 @@ void hmac_sha512(const uint8_t *key, size_t keylen, const uint8_t *data, size_t 
 /* Node
  */
 void node_dump(const struct s_wallet_node *master_node);
-int node_master_generate(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node);
+int node_generate_master(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node);
+int node_compute_key_path(const char *key_path, const struct s_wallet_node *master_node, struct s_wallet_node *target_node);
 
 /* CKD
  */
@@ -79,9 +89,5 @@ int ckd_private_parent_to_public_child(
 		const struct s_extended_private_key *parent,
 		struct s_extended_public_key *child,
 		uint32_t index);
-
-/* int ckd_private_parent_to_private_child(const struct s_wallet_node *parent, struct s_wallet_node *child, uint32_t index); */
-/* int ckd_public_parent_to_public_child(const struct s_wallet_node *parent, struct s_wallet_node *child, uint32_t index); */
-/* int ckd_private_parent_to_public_child(const struct s_wallet_node *parent, struct s_wallet_node *public_child, uint32_t index); */
 
 #endif
