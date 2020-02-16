@@ -112,7 +112,12 @@ int node_compute_key_path(const char *key_path, const struct s_wallet_node *mast
 		goto cleanup;
 
 	if (is_target_public)
+	{
+		ret = point_from_byte_array(target_node->privkey, &target_node->pubkey);
+		if (ret == -1)
+			goto cleanup;
 		sodium_memzero(target_node->privkey, sizeof(target_node->privkey));
+	}
 
 	target_node->index = target_index;
 	target_node->depth = depth;
