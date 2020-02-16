@@ -44,7 +44,7 @@ extern secp256k1_context *ctx;
 /* Utils
  */
 void error_print(const char *module, const char *msg);
-void dumpmem(const uint8_t *mem, size_t memlen);
+void dumpmem(const void *mem, size_t memlen);
 /*
  * Returns:
  * -1 on error
