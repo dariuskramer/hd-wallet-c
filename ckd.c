@@ -91,6 +91,12 @@ int ckd_private_parent_to_private_child(
 	ret = byte_array_add(child->privkey, parsed_left, parent->privkey);
 	if (ret == -1)
 		goto cleanup;
+	if (secp256k1_ec_seckey_verify(ctx, child->privkey) == 0)
+	{
+		ERROR("child privkey is invalid");
+		ret = -1;
+		goto cleanup;
+	}
 
 	/* ci = IR
 	 */
