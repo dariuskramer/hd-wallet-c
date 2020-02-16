@@ -56,7 +56,30 @@ cleanup:
 	return ret;
 }
 
-int point(const uint8_t *p, secp256k1_pubkey *pubkey)
+int byte_array_to_scalar(const uint8_t bytearray[32], secp256k1_scalar *s)
+{
+	int	overflow = 0;
+	int	ret = 0;
+
+	secp256k1_scalar_set_b32(s, bytearray, &overflow);
+	if (overflow)
+	{
+		ERROR("scalar overflow");
+		ret = -1;
+	}
+
+	ret = secp256k1_scalar_is_zero(s);
+	if (ret)
+	{
+		ERROR("scalar is zero");
+		ret = -1;
+		secp256k1_scalar_clear(s);
+	}
+
+	return ret;
+}
+
+int point_from_byte_array(const uint8_t *p, secp256k1_pubkey *pubkey)
 {
 	if (secp256k1_ec_pubkey_create(ctx, pubkey, (const unsigned char*)p) == 0)
 	{
@@ -65,6 +88,41 @@ int point(const uint8_t *p, secp256k1_pubkey *pubkey)
 	}
 
 	return 0;
+}
+
+int point_from_scalar(const secp256k1_scalar *s, secp256k1_pubkey *pubkey)
+{
+	uint8_t	bytearray[32];
+	int		ret;
+
+	secp256k1_scalar_get_b32(bytearray, s);
+	ret = point_from_byte_array(bytearray, pubkey);
+	sodium_memzero(bytearray, sizeof(bytearray));
+
+	return ret;
+}
+
+int point_add(secp256k1_pubkey *result, const secp256k1_pubkey *a, const secp256k1_pubkey *b)
+{
+	const secp256k1_pubkey	*pubkey_array[2] = {a, b};
+	int						ret = 0;
+
+	// convertir une pubkey en GE
+	// secp256k1_pubkey_load
+
+	// convertir un GE en GEJ
+	// secp256k1_gej_set_ge
+
+	/* secp256k1_gej_add_var(gej_result, gej_a, gej_b, NULL); */
+
+	// add multiples pubkey together
+	// secp256k1_ec_pubkey_combine
+
+	ret = secp256k1_ec_pubkey_combine(ctx, result, pubkey_array, sizeof(pubkey_array));
+	if (ret == 0)
+		ret = -1;
+
+	return ret;
 }
 
 void serialize32(uint32_t i, uint8_t serialized[4])

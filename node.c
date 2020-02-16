@@ -17,7 +17,7 @@ void node_dump(const struct s_wallet_node *master_node)
 	sodium_bin2hex(chaincode_hex, sizeof(chaincode_hex), master_node->chaincode, NODE_CHAINCODE_SIZE);
 	printf("chaincode: %s\n", chaincode_hex);
 
-	sodium_bin2hex(compressed_pubkey_hex, sizeof(compressed_pubkey_hex), master_node->pubkey, NODE_COMPRESSED_PUBKEY_SIZE);
+	sodium_bin2hex(compressed_pubkey_hex, sizeof(compressed_pubkey_hex), master_node->serialized_pubkey, NODE_COMPRESSED_PUBKEY_SIZE);
 	printf("compressed pubkey: %s\n", compressed_pubkey_hex);
 
 	printf("index: %u\n", master_node->index);
@@ -37,7 +37,15 @@ static int node_init(struct s_wallet_node *node, const uint8_t *left, const uint
 		return -1;
 	}
 
-	ret = serialize_pubkey_from_privkey(node->privkey, node->pubkey);
+	/* Compute pubkey
+	 */
+	ret = point_from_byte_array(node->privkey, &node->pubkey);
+	if (ret == -1)
+		return -1;
+
+	/* Serialize pubkey
+	 */
+	ret = serialize_point(&node->pubkey, node->serialized_pubkey);
 	if (ret == -1)
 		return -1;
 
