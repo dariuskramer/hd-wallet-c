@@ -15,18 +15,27 @@ void node_dump(const struct s_wallet_node *master_node)
 {
 	char privkey_hex[NODE_PRIVKEY_SIZE * 2 + 1];
 	char chaincode_hex[NODE_CHAINCODE_SIZE * 2 + 1];
-	char compressed_pubkey_hex[NODE_COMPRESSED_PUBKEY_SIZE * 2 + 1];
+	char pubkey_hex[sizeof(secp256k1_pubkey) * 2 + 1];
+	char serialized_pubkey_hex[128];
 
-	sodium_bin2hex(privkey_hex, sizeof(privkey_hex), master_node->privkey, NODE_PRIVKEY_SIZE);
+	// Privkey
+	sodium_bin2hex(privkey_hex, sizeof(privkey_hex), master_node->privkey, sizeof(master_node->privkey));
 	printf("privkey: %s\n", privkey_hex);
 
-	sodium_bin2hex(chaincode_hex, sizeof(chaincode_hex), master_node->chaincode, NODE_CHAINCODE_SIZE);
+	// Chaincode
+	sodium_bin2hex(chaincode_hex, sizeof(chaincode_hex), master_node->chaincode, sizeof(master_node->chaincode));
 	printf("chaincode: %s\n", chaincode_hex);
 
-	sodium_bin2hex(compressed_pubkey_hex, sizeof(compressed_pubkey_hex), master_node->serialized_pubkey, NODE_COMPRESSED_PUBKEY_SIZE);
-	printf("compressed pubkey: %s\n", compressed_pubkey_hex);
+	// Pubkey
+	sodium_bin2hex(pubkey_hex, sizeof(pubkey_hex), master_node->pubkey.data, sizeof(master_node->pubkey));
+	printf("pubkey: [%s]\n", pubkey_hex);
+
+	// Serialized Pubkey
+	sodium_bin2hex(serialized_pubkey_hex, sizeof(serialized_pubkey_hex), master_node->serialized_pubkey, sizeof(master_node->serialized_pubkey));
+	printf("serialized pubkey: %s\n", serialized_pubkey_hex);
 
 	printf("index: %u\n", master_node->index);
+	printf("depth: %u\n", master_node->depth);
 }
 
 int node_generate_master(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node)

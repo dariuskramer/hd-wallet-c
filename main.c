@@ -71,6 +71,10 @@ int main(int ac, char *av[])
 	if (ret == -1)
 		goto cleanup;
 
+	puts(">>> Master Node:");
+	node_dump(&master_node);
+	puts("");
+
 	printf(">>> Compute key path: %s\n", av[1]);
 	if (node_compute_key_path(av[1], &master_node, &target_node) != -1)
 		node_dump(&target_node);
