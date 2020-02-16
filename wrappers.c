@@ -6,6 +6,11 @@
 #include <num_impl.h>
 #include "hd-wallet.h"
 
+void byte_array_init(void *a, size_t size)
+{
+	memset(a, 0xff, size);
+}
+
 int byte_array_add(uint8_t result[32], const uint8_t a[32], const uint8_t b[32])
 {
 	secp256k1_scalar	sa;

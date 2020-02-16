@@ -33,8 +33,8 @@ int main(int ac, char *av[])
 	int ret;
 	uint8_t seed[SEED_MIN_ENTROPY_SIZE];
 	size_t seedlen = sizeof(seed);
-	struct s_wallet_node master_node = {0};
-	struct s_wallet_node target_node = {0};
+	struct s_wallet_node master_node;
+	struct s_wallet_node target_node;
 
 	if (ac != 2)
 	{
@@ -63,6 +63,9 @@ int main(int ac, char *av[])
 		if (ret == -1)
 			goto cleanup;
 	}
+
+	node_init(&master_node);
+	node_init(&target_node);
 
 	ret = node_generate_master(seed, seedlen, &master_node);
 	if (ret == -1)

@@ -6,6 +6,11 @@
 #include <secp256k1.h>
 #include "hd-wallet.h"
 
+void node_init(struct s_wallet_node *node)
+{
+	memset(node, 0xff, sizeof(*node));
+}
+
 void node_dump(const struct s_wallet_node *master_node)
 {
 	char privkey_hex[NODE_PRIVKEY_SIZE * 2 + 1];
@@ -84,6 +89,7 @@ int node_compute_key_path(const char *key_path, const struct s_wallet_node *mast
 
 	/* Bootstrap
 	 */
+	node_init(&temp_parent);
 	memcpy(temp_parent.privkey,   master_node->privkey,   sizeof(temp_parent.privkey));
 	memcpy(temp_parent.chaincode, master_node->chaincode, sizeof(temp_parent.chaincode));
 	parent.privkey   = temp_parent.privkey;

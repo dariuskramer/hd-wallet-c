@@ -55,6 +55,7 @@ int get_next_index(const char **key_path, uint32_t *next_index, bool *hardened);
 
 /* Wrappers
  */
+void byte_array_init(void *a, size_t size);
 int byte_array_add(uint8_t result[32], const uint8_t a[32], const uint8_t b[32]);
 int byte_array_to_scalar(const uint8_t bytearray[32], secp256k1_scalar *s);
 int point_from_byte_array(const uint8_t *p, secp256k1_pubkey *pubkey);
@@ -69,6 +70,7 @@ void hmac_sha512(const uint8_t *key, size_t keylen, const uint8_t *data, size_t 
 
 /* Node
  */
+void node_init(struct s_wallet_node *node);
 void node_dump(const struct s_wallet_node *master_node);
 int node_generate_master(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node);
 int node_compute_key_path(const char *key_path, const struct s_wallet_node *master_node, struct s_wallet_node *target_node);
