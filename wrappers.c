@@ -1,9 +1,13 @@
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
 #include <sodium.h>
 #include <secp256k1.h>
 #include <scalar_impl.h>
 #include <num_impl.h>
+#include <libbase58.h>
+#include <openssl/ripemd.h>
+#include <openssl/sha.h>
 #include "hd-wallet.h"
 
 void byte_array_init(void *a, size_t size)
@@ -237,4 +241,68 @@ void hmac_sha512(const uint8_t *key, size_t keylen,
 
 	memcpy(left, hash, half);
 	memcpy(right, hash + half, half);
+}
+
+size_t b58_node(uint8_t *b58, size_t b58len, const struct s_wallet_node *node, const struct s_wallet_node *parent, bool public)
+{
+	uint8_t			serialized[NODE_SERIALIZED_SIZE];
+	unsigned char	cks[crypto_hash_sha256_BYTES];
+	unsigned char	cks2[crypto_hash_sha256_BYTES];
+	size_t			offset = 0;
+
+	// Version
+	if (public)
+		memcpy(serialized, "\x04\x88\xb2\x1e", 4);
+	else
+		memcpy(serialized, "\x04\x88\xad\xe4", 4);
+	offset += 4;
+
+	// Depth
+	memcpy(serialized + offset, &node->depth, sizeof(node->depth));
+	offset += 1;
+
+	// Parent key fingerprint
+	uint8_t fingerprint[RIPEMD160_DIGEST_LENGTH];
+	hash160(parent->serialized_pubkey, sizeof(parent->serialized_pubkey), fingerprint);
+	memcpy(serialized + offset, fingerprint, 4);
+	offset += 4;
+
+	// Child number
+	serialize32(node->index, serialized + offset);
+	offset += 4;
+
+	// Chain code
+	memcpy(serialized + offset, node->chaincode, sizeof(node->chaincode));
+	offset += 32;
+
+	// Key
+	if (public)
+		serialize_point(&node->pubkey, serialized + offset);
+	else
+	{
+		memcpy(serialized + offset, "\xff", 1);
+		serialize256(node->privkey, serialized + offset + 1);
+	}
+	offset += 33;
+
+	// Checksum
+	crypto_hash_sha256(cks,  serialized, NODE_SERIALIZED_SIZE - 4);
+	crypto_hash_sha256(cks2, cks, sizeof(cks2));
+	memcpy(serialized + offset, cks2, 4);
+
+	if (!b58enc((char*)b58, &b58len, serialized, sizeof(serialized)))
+	{
+		printf("b58 error: need %zu bytes\n", b58len);
+		assert(false);
+	}
+
+	return b58len;
+}
+
+void hash160(const uint8_t *msg, size_t msglen, uint8_t *digest)
+{
+	unsigned char sha256[SHA256_DIGEST_LENGTH] = {0};
+
+	SHA256((unsigned char*)msg, msglen, sha256);
+	RIPEMD160(sha256, SHA256_DIGEST_LENGTH, digest);
 }

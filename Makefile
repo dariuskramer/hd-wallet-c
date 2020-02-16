@@ -23,7 +23,7 @@ OBJ_PATH   = .obj
 OBJECTS    = $(SOURCES:%.c=$(OBJ_PATH)/%.o)
 
 # base58
-CFLAGS     += -I/libbase58
+CFLAGS     += -Ilibbase58
 LDFLAGS    += -Llibbase58/.libs -Wl,-rpath,libbase58/.libs -lbase58
 
 # sodium
@@ -34,6 +34,9 @@ LDFLAGS    += -Llibsodium/src/libsodium/.libs -Wl,-rpath,libsodium/src/libsodium
 CFLAGS     += -Isecp256k1/include -Isecp256k1/src -DHAVE___INT128 -DUSE_SCALAR_4X64 -DUSE_NUM_GMP -DUSE_SCALAR_INV_BUILTIN -g -O2 -W -Wcast-align -Wnested-externs -Wshadow -Wstrict-prototypes -Wno-unused-function -Wno-long-long -Wno-overlength-strings -fvisibility=hidden -O3
 LDFLAGS    += -Lsecp256k1/.libs -Wl,-rpath,secp256k1/.libs -lsecp256k1
 
+# OpenSSL
+CFLAGS    +=
+LDFLAGS   += -lssl -lcrypto
 
 all: $(NAME)
 
