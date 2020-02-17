@@ -9,7 +9,7 @@
 
 secp256k1_context *ctx;
 
-static int read_seed_from_stdin(uint8_t *seed, size_t seedlen)
+static size_t read_seed_from_stdin(uint8_t *seed, size_t seedlen)
 {
 	ssize_t bytes_read;
 
@@ -17,22 +17,27 @@ static int read_seed_from_stdin(uint8_t *seed, size_t seedlen)
 	if (bytes_read < 0)
 	{
 		perror("read");
-		return -1;
+		return 0;
 	}
-	else if ((size_t)bytes_read != seedlen)
+	else if (bytes_read == 0)
+	{
+		ERROR("nothing read");
+		return 0;
+	}
+	else if ((size_t)bytes_read < SEED_MIN_ENTROPY_SIZE)
 	{
 		ERROR("insufficient entropy");
-		return -1;
+		return 0;
 	}
 
-	return 0;
+	return (size_t)bytes_read;
 }
 
 int main(int ac, char *av[])
 {
 	int ret;
-	uint8_t seed[SEED_MIN_ENTROPY_SIZE];
-	size_t seedlen = sizeof(seed);
+	uint8_t seed[SEED_MAX_ENTROPY_SIZE];
+	size_t seedlen = SEED_MAX_ENTROPY_SIZE;
 	struct s_wallet_node master_node;
 	struct s_wallet_node target_node;
 
@@ -59,8 +64,8 @@ int main(int ac, char *av[])
 		randombytes_buf(seed, seedlen);
 	else
 	{
-		ret = read_seed_from_stdin(seed, seedlen);
-		if (ret == -1)
+		seedlen = read_seed_from_stdin(seed, seedlen);
+		if (seedlen == 0)
 			goto cleanup;
 	}
 
@@ -71,7 +76,6 @@ int main(int ac, char *av[])
 	if (ret == -1)
 		goto cleanup;
 
-	printf(">>> Compute key path: %s\n", av[1]);
 	if (node_compute_key_path(av[1], &master_node, &target_node) == -1)
 		goto cleanup;
 
@@ -79,7 +83,7 @@ int main(int ac, char *av[])
 
 cleanup:
 	secp256k1_context_destroy(ctx);
-	sodium_memzero(seed, seedlen);
+	sodium_memzero(seed, sizeof(seed));
 	sodium_memzero(&master_node, sizeof(master_node));
 	sodium_memzero(&target_node, sizeof(target_node));
 

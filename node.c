@@ -90,7 +90,7 @@ static void node_print_b58(const struct s_wallet_node *node, bool public)
 	uint8_t b58[128] = {0};
 
 	b58_node(b58, sizeof(b58), node, public);
-	printf("b58: %s\n", b58);
+	puts((char*)b58);
 
 	sodium_memzero(b58, sizeof(b58));
 }

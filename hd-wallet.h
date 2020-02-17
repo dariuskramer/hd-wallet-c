@@ -7,6 +7,7 @@
 # include <num_impl.h>
 
 # define SEED_MIN_ENTROPY_SIZE 16
+# define SEED_MAX_ENTROPY_SIZE 64
 # define NODE_PRIVKEY_SIZE 32
 # define NODE_CHAINCODE_SIZE 32
 # define NODE_COMPRESSED_PUBKEY_SIZE 33
