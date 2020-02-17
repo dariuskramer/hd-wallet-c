@@ -11,7 +11,6 @@ int ckd_private_parent_to_private_child(
 		uint32_t index)
 {
 	uint8_t	left[crypto_auth_hmacsha512_BYTES / 2];
-	uint8_t	parsed_left[crypto_auth_hmacsha512_BYTES / 2];
 	uint8_t	right[crypto_auth_hmacsha512_BYTES / 2];
 	uint8_t	data[128];
 	size_t	datalen;
@@ -19,23 +18,19 @@ int ckd_private_parent_to_private_child(
 
 	if (KEY_INDEX_IS_HARDEDNED(index)) /* Hardened child */
 	{
-		uint8_t serialized_privkey[NODE_PRIVKEY_SIZE];
 		uint8_t serialized_index[sizeof(index)];
 
-		assert(sizeof(data) >= (sizeof(serialized_privkey) + sizeof(serialized_index) + 1));
+		assert(sizeof(data) >= (NODE_PRIVKEY_SIZE + sizeof(serialized_index) + 1));
 
-		serialize256(parent->privkey, serialized_privkey);
 		serialize32(index, serialized_index);
 
 		/* Data = 0x00 || ser256(kpar) || ser32(i))
 		*/
 		data[0] = 0x0;
-		memcpy(data + 1,                              serialized_privkey, sizeof(serialized_privkey));
-		memcpy(data + 1 + sizeof(serialized_privkey), serialized_index,   sizeof(serialized_index));
+		memcpy(data + 1,                     parent->privkey,  NODE_PRIVKEY_SIZE);
+		memcpy(data + 1 + NODE_PRIVKEY_SIZE, serialized_index, sizeof(serialized_index));
 
-		datalen = sizeof(serialized_privkey) + sizeof(index) + 1;
-
-		sodium_memzero(serialized_privkey, sizeof(serialized_privkey));
+		datalen = NODE_PRIVKEY_SIZE + sizeof(index) + 1;
 	}
 	else /* Normal child */
 	{
@@ -78,8 +73,7 @@ int ckd_private_parent_to_private_child(
 
 	/* parse256(IL) ≥ n
 	 */
-	parse256(left, parsed_left);
-	if (secp256k1_ec_seckey_verify(ctx, parsed_left) == 0)
+	if (secp256k1_ec_seckey_verify(ctx, left) == 0)
 	{
 		ERROR("left hmac_sha512 is invalid");
 		ret = -1;
@@ -88,7 +82,7 @@ int ckd_private_parent_to_private_child(
 
 	/* ki = parse256(IL) + kpar (mod n)
 	*/
-	ret = byte_array_add(child->privkey, parsed_left, parent->privkey);
+	ret = byte_array_add(child->privkey, left, parent->privkey);
 	if (ret == -1)
 		goto cleanup;
 	if (secp256k1_ec_seckey_verify(ctx, child->privkey) == 0)
@@ -105,7 +99,6 @@ int ckd_private_parent_to_private_child(
 cleanup:
 	sodium_memzero(data, sizeof(data));
 	sodium_memzero(left, sizeof(left));
-	sodium_memzero(parsed_left, sizeof(parsed_left));
 	sodium_memzero(right, sizeof(right));
 
 	return ret;
@@ -117,7 +110,6 @@ int ckd_public_parent_to_public_child(
 		uint32_t index)
 {
 	uint8_t				left[crypto_auth_hmacsha512_BYTES / 2];
-	uint8_t				parsed_left[crypto_auth_hmacsha512_BYTES / 2];
 	secp256k1_scalar	scalar_left;
 	secp256k1_pubkey	pubkey_left;
 	uint8_t				right[crypto_auth_hmacsha512_BYTES / 2];
@@ -155,8 +147,7 @@ int ckd_public_parent_to_public_child(
 
 	/* parse256(IL)
 	 */
-	parse256(left, parsed_left);
-	if (secp256k1_ec_seckey_verify(ctx, parsed_left) == 0)
+	if (secp256k1_ec_seckey_verify(ctx, left) == 0)
 	{
 		ERROR("left hmac_sha512 is invalid");
 		ret = -1;
@@ -165,7 +156,7 @@ int ckd_public_parent_to_public_child(
 
 	/* point(parse256(IL))
 	 */
-	ret = byte_array_to_scalar(parsed_left, &scalar_left);
+	ret = byte_array_to_scalar(left, &scalar_left);
 	if (ret == -1)
 		goto cleanup;
 	ret = point_from_scalar(&scalar_left, &pubkey_left);
@@ -184,7 +175,6 @@ int ckd_public_parent_to_public_child(
 
 cleanup:
 	sodium_memzero(left, sizeof(left));
-	sodium_memzero(parsed_left, sizeof(parsed_left));
 	secp256k1_scalar_clear(&scalar_left);
 	sodium_memzero(&pubkey_left, sizeof(pubkey_left));
 	sodium_memzero(right, sizeof(right));

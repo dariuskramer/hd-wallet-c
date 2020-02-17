@@ -101,7 +101,6 @@ int node_generate_master(const uint8_t *seed, size_t seedlen, struct s_wallet_no
 	struct s_extended_private_key	tmp_key;
 	uint8_t							key[] = "Bitcoin seed";
 	uint8_t 						left[crypto_auth_hmacsha512_BYTES / 2];
-	uint8_t 						parsed_left[sizeof(left)];
 	uint8_t 						right[crypto_auth_hmacsha512_BYTES / 2];
 	int								ret = 0;
 
@@ -109,8 +108,7 @@ int node_generate_master(const uint8_t *seed, size_t seedlen, struct s_wallet_no
 
 	/* Privkey
 	 */
-	parse256(left, parsed_left);
-	memcpy(tmp_node.privkey, parsed_left, NODE_PRIVKEY_SIZE);
+	memcpy(tmp_node.privkey, left, NODE_PRIVKEY_SIZE);
 
 	/* Chaincode
 	 */
@@ -124,7 +122,6 @@ int node_generate_master(const uint8_t *seed, size_t seedlen, struct s_wallet_no
 	memset(master_node->fingerprint, 0x00, NODE_FINGERPRINT_SIZE);
 
 	sodium_memzero(left, sizeof(left));
-	sodium_memzero(parsed_left, sizeof(parsed_left));
 	sodium_memzero(right, sizeof(right));
 	sodium_memzero(&tmp_node, sizeof(tmp_node));
 
@@ -165,8 +162,8 @@ int node_compute_key_path(const char *key_path, const struct s_wallet_node *mast
 
 	while ((ret = get_next_index(&key_path, &target_index, &hardened)) == 1)
 	{
-		memcpy(ext_parent.privkey,   ext_child.privkey,   sizeof(NODE_PRIVKEY_SIZE));
-		memcpy(ext_parent.chaincode, ext_child.chaincode, sizeof(NODE_CHAINCODE_SIZE));
+		memcpy(ext_parent.privkey,   ext_child.privkey,   NODE_PRIVKEY_SIZE);
+		memcpy(ext_parent.chaincode, ext_child.chaincode, NODE_CHAINCODE_SIZE);
 
 		ret = ckd_private_parent_to_private_child(&ext_parent, &ext_child, target_index);
 		if (ret == -1)

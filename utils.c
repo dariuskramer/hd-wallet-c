@@ -15,7 +15,7 @@ void dumpmem(const void *mem, size_t memlen)
 	for (size_t i = 0; i < memlen; ++i)
 		printf("%02x", ((uint8_t*)mem)[i]);
 
-	printf("\n");
+	putchar('\n');
 }
 
 int get_next_index(const char **key_path, uint32_t *next_index, bool *hardened)
