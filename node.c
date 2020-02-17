@@ -18,6 +18,7 @@ void node_dump(const struct s_wallet_node *master_node)
 	char chaincode_hex[NODE_CHAINCODE_SIZE * 2 + 1];
 	char pubkey_hex[sizeof(secp256k1_pubkey) * 2 + 1];
 	char serialized_pubkey_hex[128];
+	char fingerprint_hex[NODE_FINGERPRINT_SIZE * 2 + 1];
 
 	// Privkey
 	sodium_bin2hex(privkey_hex, sizeof(privkey_hex), master_node->privkey, sizeof(master_node->privkey));
@@ -37,18 +38,26 @@ void node_dump(const struct s_wallet_node *master_node)
 
 	printf("index: %u\n", master_node->index);
 	printf("depth: %u\n", master_node->depth);
+
+	// Fingerprint
+	sodium_bin2hex(fingerprint_hex, sizeof(fingerprint_hex), master_node->fingerprint, sizeof(master_node->fingerprint));
+	printf("fingerprint: %s\n", fingerprint_hex);
 }
 
-static int node_fill(struct s_wallet_node *node, const uint8_t *privkey, const uint8_t *chaincode, uint32_t index, uint8_t depth)
+static int node_fill(struct s_wallet_node *node,
+		const struct s_extended_private_key *ext_key,
+		const struct s_extended_private_key *ext_parent,
+		uint32_t index,
+		uint8_t depth)
 {
-	if (secp256k1_ec_seckey_verify(ctx, (const unsigned char*)privkey) == 0)
+	if (secp256k1_ec_seckey_verify(ctx, (const unsigned char*)ext_key->privkey) == 0)
 	{
 		ERROR("secret key is invalid");
 		return -1;
 	}
 
-	memmove(node->privkey,   privkey,   NODE_PRIVKEY_SIZE);
-	memmove(node->chaincode, chaincode, NODE_CHAINCODE_SIZE);
+	memmove(node->privkey,   ext_key->privkey,   NODE_PRIVKEY_SIZE);
+	memmove(node->chaincode, ext_key->chaincode, NODE_CHAINCODE_SIZE);
 
 	/* Compute the Public Key
 	 */
@@ -63,32 +72,68 @@ static int node_fill(struct s_wallet_node *node, const uint8_t *privkey, const u
 	node->index = index;
 	node->depth = depth;
 
+	/* Parent fingerprint
+	 */
+	struct s_wallet_node parent;
+	if (point_from_byte_array(ext_parent->privkey, &parent.pubkey) == -1)
+		return -1;
+	if (serialize_point(&parent.pubkey, parent.serialized_pubkey) == -1)
+		return -1;
+	key_fingerprint(node->fingerprint, parent.serialized_pubkey);
+	sodium_memzero(&parent, sizeof(parent));
+
 	return 0;
+}
+
+static void node_print_b58(const struct s_wallet_node *node, bool public)
+{
+	uint8_t b58[128] = {0};
+
+	b58_node(b58, sizeof(b58), node, public);
+	printf("b58: %s\n", b58);
+
+	sodium_memzero(b58, sizeof(b58));
 }
 
 int node_generate_master(const uint8_t *seed, size_t seedlen, struct s_wallet_node *master_node)
 {
-	uint8_t key[] = "Bitcoin seed";
-	uint8_t left[crypto_auth_hmacsha512_BYTES / 2];
-	uint8_t parsed_left[sizeof(left)];
-	uint8_t right[crypto_auth_hmacsha512_BYTES / 2];
-	int		ret = 0;
+	struct s_wallet_node			tmp_node;
+	struct s_extended_private_key	tmp_key;
+	uint8_t							key[] = "Bitcoin seed";
+	uint8_t 						left[crypto_auth_hmacsha512_BYTES / 2];
+	uint8_t 						parsed_left[sizeof(left)];
+	uint8_t 						right[crypto_auth_hmacsha512_BYTES / 2];
+	int								ret = 0;
 
 	hmac_sha512(key, sizeof(key), seed, seedlen, left, right);
-	parse256(left, parsed_left);
 
-	ret = node_fill(master_node, parsed_left, right, 0, 0);
+	/* Privkey
+	 */
+	parse256(left, parsed_left);
+	memcpy(tmp_node.privkey, parsed_left, NODE_PRIVKEY_SIZE);
+
+	/* Chaincode
+	 */
+	memcpy(tmp_node.chaincode, right, NODE_CHAINCODE_SIZE);
+
+	/* Pubkey, Index, Depth, Fingerprint
+	 */
+	tmp_key.privkey = tmp_node.privkey;
+	tmp_key.chaincode = tmp_node.chaincode;
+	ret = node_fill(master_node, &tmp_key, &tmp_key, 0, 0);
+	memset(master_node->fingerprint, 0x00, NODE_FINGERPRINT_SIZE);
 
 	sodium_memzero(left, sizeof(left));
 	sodium_memzero(parsed_left, sizeof(parsed_left));
 	sodium_memzero(right, sizeof(right));
+	sodium_memzero(&tmp_node, sizeof(tmp_node));
 
 	return ret;
 }
 
 int node_compute_key_path(const char *key_path, const struct s_wallet_node *master_node, struct s_wallet_node *target_node)
 {
-	struct s_wallet_node			parent_node = *master_node;
+	struct s_wallet_node			parent_node;
 	struct s_extended_private_key	ext_parent;
 	struct s_extended_private_key	ext_child;
 	uint32_t						target_index;
@@ -100,21 +145,28 @@ int node_compute_key_path(const char *key_path, const struct s_wallet_node *mast
 	if (key_path[0] == 'M')
 		is_target_public = true;
 
-	// TODO
-	assert(key_path[0] != '\0' && key_path[1] == '/');
-	key_path += 2;
-
 	/* Bootstrap
 	 */
+	*target_node = *master_node;
 	ext_parent.privkey   = parent_node.privkey;
 	ext_parent.chaincode = parent_node.chaincode;
 	ext_child.privkey    = target_node->privkey;
 	ext_child.chaincode  = target_node->chaincode;
 
+	if (strlen(key_path) < 3)
+	{
+		node_print_b58(target_node, is_target_public);
+		goto cleanup;
+	}
+
+	/* Jump to first index
+	 */
+	key_path += 2;
+
 	while ((ret = get_next_index(&key_path, &target_index, &hardened)) == 1)
 	{
-		/* memcpy(parent_node.privkey,   ext_child.privkey,   sizeof(parent_node.privkey)); */
-		/* memcpy(parent_node.chaincode, ext_child.chaincode, sizeof(parent_node.chaincode)); */
+		memcpy(ext_parent.privkey,   ext_child.privkey,   sizeof(NODE_PRIVKEY_SIZE));
+		memcpy(ext_parent.chaincode, ext_child.chaincode, sizeof(NODE_CHAINCODE_SIZE));
 
 		ret = ckd_private_parent_to_private_child(&ext_parent, &ext_child, target_index);
 		if (ret == -1)
@@ -125,30 +177,15 @@ int node_compute_key_path(const char *key_path, const struct s_wallet_node *mast
 	if (ret == -1)
 		goto cleanup;
 
-	/* Fill parent node
-	 */
-	ret = node_fill(&parent_node, parent_node.privkey, parent_node.chaincode, target_index-1, depth-1); // TODO -1
-	if (ret == -1)
-		goto cleanup;
-
 	/* Fill child node
 	 */
-	ret = node_fill(target_node, target_node->privkey, target_node->chaincode, target_index, depth); // TODO -1
+	ret = node_fill(target_node, &ext_child, &ext_parent, target_index, depth);
 	if (ret == -1)
 		goto cleanup;
-
-	if (is_target_public)
-		sodium_memzero(target_node->privkey, sizeof(target_node->privkey));
 
 	/* Display serialized extended key
 	 */
-	uint8_t b58[128] = {0};
-
-	node_dump(target_node);
-	b58_node(b58, sizeof(b58), target_node, &parent_node, is_target_public);
-	printf("b58: %s\n", b58);
-
-	sodium_memzero(b58, sizeof(b58));
+	node_print_b58(target_node, is_target_public);
 
 cleanup:
 	sodium_memzero(&parent_node, sizeof(parent_node));

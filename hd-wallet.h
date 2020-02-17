@@ -11,7 +11,8 @@
 # define NODE_CHAINCODE_SIZE 32
 # define NODE_COMPRESSED_PUBKEY_SIZE 33
 # define NODE_UNCOMPRESSED_PUBKEY_SIZE 65
-# define NODE_SERIALIZED_SIZE		(78 + 4)
+# define NODE_FINGERPRINT_SIZE			4
+# define NODE_SERIALIZED_SIZE		(78 + NODE_FINGERPRINT_SIZE)
 # define NODE_B58_SIZE				(128)
 # define KEY_HARDENED_MARKER		'\''
 # define KEY_HARDENED_OFFSET		(1U << 31)
@@ -27,6 +28,7 @@ struct s_wallet_node
 	uint32_t			index;
 	uint8_t				depth;
 	uint8_t 			serialized_pubkey[NODE_COMPRESSED_PUBKEY_SIZE];
+	uint8_t 			fingerprint[NODE_FINGERPRINT_SIZE];
 };
 
 struct s_extended_private_key
@@ -69,8 +71,9 @@ int serialize_point(const secp256k1_pubkey *point, uint8_t serialized_point[NODE
 int serialize_pubkey_from_privkey(const uint8_t *privkey, uint8_t *serialized_pubkey);
 void parse256(const uint8_t serialized[32], uint8_t parsed[32]);
 void hmac_sha512(const uint8_t *key, size_t keylen, const uint8_t *data, size_t datalen, uint8_t *left, uint8_t *right);
-size_t b58_node(uint8_t *b58, size_t b58len, const struct s_wallet_node *node, const struct s_wallet_node *parent, bool public);
+size_t b58_node(uint8_t *b58, size_t b58len, const struct s_wallet_node *node, bool public);
 void hash160(const uint8_t *msg, size_t msglen, uint8_t *digest);
+void key_fingerprint(uint8_t *fingerprint, const uint8_t *serialized_pubkey);
 
 /* Node
  */

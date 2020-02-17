@@ -71,21 +71,9 @@ int main(int ac, char *av[])
 	if (ret == -1)
 		goto cleanup;
 
-	/* puts(">>> Master Node:"); */
-	/* node_dump(&master_node); */
-	/* puts(""); */
-
 	printf(">>> Compute key path: %s\n", av[1]);
-	if (node_compute_key_path(av[1], &master_node, &target_node) != -1)
-	{
-		/* uint8_t b58[128] = {0}; */
-
-		/* node_dump(&target_node); */
-		/* b58_node(b58, sizeof(b58), &target_node, false); */
-		/* printf("b58: %s\n", b58); */
-
-		/* sodium_memzero(b58, sizeof(b58)); */
-	}
+	if (node_compute_key_path(av[1], &master_node, &target_node) == -1)
+		goto cleanup;
 
 	return EXIT_SUCCESS;
 

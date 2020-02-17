@@ -243,7 +243,23 @@ void hmac_sha512(const uint8_t *key, size_t keylen,
 	memcpy(right, hash + half, half);
 }
 
-size_t b58_node(uint8_t *b58, size_t b58len, const struct s_wallet_node *node, const struct s_wallet_node *parent, bool public)
+void hash160(const uint8_t *msg, size_t msglen, uint8_t *digest)
+{
+	unsigned char sha256[SHA256_DIGEST_LENGTH] = {0};
+
+	SHA256((unsigned char*)msg, msglen, sha256);
+	RIPEMD160(sha256, SHA256_DIGEST_LENGTH, digest);
+}
+
+void key_fingerprint(uint8_t *fingerprint, const uint8_t *serialized_pubkey)
+{
+	uint8_t ripemd160[RIPEMD160_DIGEST_LENGTH];
+
+	hash160(serialized_pubkey, NODE_COMPRESSED_PUBKEY_SIZE, ripemd160);
+	memcpy(fingerprint, ripemd160, NODE_FINGERPRINT_SIZE);
+}
+
+size_t b58_node(uint8_t *b58, size_t b58len, const struct s_wallet_node *node, bool public)
 {
 	uint8_t			serialized[NODE_SERIALIZED_SIZE];
 	unsigned char	cks[crypto_hash_sha256_BYTES];
@@ -262,10 +278,8 @@ size_t b58_node(uint8_t *b58, size_t b58len, const struct s_wallet_node *node, c
 	offset += 1;
 
 	// Parent key fingerprint
-	uint8_t fingerprint[RIPEMD160_DIGEST_LENGTH];
-	hash160(parent->serialized_pubkey, sizeof(parent->serialized_pubkey), fingerprint);
-	memcpy(serialized + offset, fingerprint, 4);
-	offset += 4;
+	memcpy(serialized + offset, node->fingerprint, NODE_FINGERPRINT_SIZE);
+	offset += NODE_FINGERPRINT_SIZE;
 
 	// Child number
 	serialize32(node->index, serialized + offset);
@@ -297,12 +311,4 @@ size_t b58_node(uint8_t *b58, size_t b58len, const struct s_wallet_node *node, c
 	}
 
 	return b58len;
-}
-
-void hash160(const uint8_t *msg, size_t msglen, uint8_t *digest)
-{
-	unsigned char sha256[SHA256_DIGEST_LENGTH] = {0};
-
-	SHA256((unsigned char*)msg, msglen, sha256);
-	RIPEMD160(sha256, SHA256_DIGEST_LENGTH, digest);
 }
