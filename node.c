@@ -165,6 +165,9 @@ int node_compute_key_path(const char *key_path, const struct s_wallet_node *mast
 		memcpy(ext_parent.privkey,   ext_child.privkey,   NODE_PRIVKEY_SIZE);
 		memcpy(ext_parent.chaincode, ext_child.chaincode, NODE_CHAINCODE_SIZE);
 
+		if (hardened)
+			target_index |= KEY_HARDENED_OFFSET;
+
 		ret = ckd_private_parent_to_private_child(&ext_parent, &ext_child, target_index);
 		if (ret == -1)
 			goto cleanup;
