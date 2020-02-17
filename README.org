@@ -1,6 +1,7 @@
 * HD-Wallet-C
 
 ** Dependencies
+- OpenSSL
 - [[https://github.com/luke-jr/libbase58][libbase58: C library for Bitcoin's base58 encoding]]
 - [[https://github.com/jedisct1/libsodium][libsodium: A modern, portable, easy to use crypto library.]]
 - [[https://github.com/bitcoin-core/secp256k1][secp256k1: Optimized C library for EC operations on curve secp256k1]]
@@ -30,8 +31,17 @@ make
 
 ** Usage
 #+BEGIN_SRC shell
-echo -ne '\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f' | ./hd-wallet
+echo -ne '\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f' | ./hd-wallet "M/1/2'/3/4'"
 
 # or
-./hd-wallet < /dev/urandom
+./hd-wallet "M/0'/1/2'"
 #+END_SRC
+
+** Tests
+
+Use the script:
+#+BEGIN_SRC shell
+./test.sh
+#+END_SRC
+
+The test vectors used are from the [[https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#Test_Vectors][BIP32]] spec.
