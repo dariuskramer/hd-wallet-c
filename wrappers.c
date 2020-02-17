@@ -294,7 +294,7 @@ size_t b58_node(uint8_t *b58, size_t b58len, const struct s_wallet_node *node, b
 		serialize_point(&node->pubkey, serialized + offset);
 	else
 	{
-		memcpy(serialized + offset,     "\xff",        1);
+		memcpy(serialized + offset,     "\x00",        1);
 		memcpy(serialized + offset + 1, node->privkey, NODE_PRIVKEY_SIZE);
 	}
 	offset += 33;
